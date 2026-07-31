@@ -1,0 +1,8 @@
+# .terraform.lock.hcl は意図的に除外しない — プロバイダのバージョンを固定するため
+# チーム/CIで同じバージョンを使うにはコミットするのが正しい
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+build/
+lambda.zip
