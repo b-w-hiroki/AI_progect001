@@ -14,36 +14,44 @@
 make check
 ```
 
-lint・フォーマット・型チェック・テストをまとめて実行する。**これが通らない状態でコミットしない。**
-
-個別に回したいとき:
+lint・型チェック・テストをまとめて実行する（Python/TS を並列、約6秒）。
+**これが通らない状態でコミットしない。**
 
 | コマンド | 内容 |
 |---|---|
-| `make fmt` | フォーマット自動修正（Python: ruff / TS: biome） |
-| `make lint` | 静的解析 |
-| `make types` | 型チェック（Python: mypy strict / TS: tsc） |
-| `make test` | テスト（pytest / vitest） |
-| `make check` | 上記すべて |
+| `make dev` | API(:8000) と フロント(:5173) を同時起動 |
+| `make watch` | テストを監視実行。変更した分だけ再実行される |
+| `make check-fast` | 型チェックとテストのみ（lintを飛ばす。作業中の反復用） |
+| `make check` | lint + 型 + テスト。コミット前に必ず |
+| `make fmt` | フォーマット自動修正 |
+
+反復中は `make watch` か `make check-fast`、コミット前に `make check` が速い。
 
 ## ディレクトリ構造
 
 ```
-apps/api/          Python バックエンド。src/api/ 配下に実装、tests/ にテスト
-apps/web/          TypeScript フロントエンド
-packages/contracts/ API の入出力型。フロント・バックの境界はここが唯一の正
-infra/             Terraform。環境ごとに分ける
-docs/adr/          アーキテクチャ決定記録。なぜそうしたかはここ
-scripts/           開発用スクリプト
+apps/api/           FastAPI。src/api/ に実装、tests/ にテスト
+  src/api/main.py     エンドポイント定義。薄く保つ
+  src/api/reviews.py  ドメインロジック。純粋関数。外部I/Oを書かない
+  src/api/contracts.py 入出力型（pydantic）
+apps/web/           Vite + React
+  src/api.ts          fetchはここに閉じ込める
+  src/App.tsx         画面
+packages/contracts/ API入出力型のTS版。フロント・バックの境界
+docs/adr/           設計判断の記録。なぜそうしたかはここ
+scripts/            開発用スクリプト
 ```
 
 ## 規約
 
-- **API の入出力型を変えるときは `packages/contracts/` と `apps/api/src/api/contracts.py` を同時に変える。** 片方だけ変えると実行時まで気づけない
-- テストは実装と同じ階層構造に置く（`src/api/reviews.py` → `tests/test_reviews.py`）
-- 型は `Any` を使わない。mypy strict / tsc strict が通る形で書く
-- 秘密情報は `.env` に置き、コミットしない。新しい環境変数を足したら `.env.example` にも追記する
-- 設計上の判断をしたら `docs/adr/` に1ファイル追加する。次に読む人（と次のセッションのAI）が同じ議論を繰り返さないため
+- **API の入出力型を変えるときは `packages/contracts/src/index.ts` と `apps/api/src/api/contracts.py` を同時に変える。** 片方だけだと実行時まで気づけない
+- **JSONは camelCase で統一。** Python側は pydantic の `alias_generator` が変換する。`test_serializes_to_camel_case` がこれを守る
+- エンドポイント（`main.py`）は薄く。判断は `reviews.py` 側の純粋関数に置く。テストが速くなり検証ループが回る
+- フロントの fetch は `apps/web/src/api.ts` にだけ書く。コンポーネントから直接叩かない
+- テストは実装と同じ階層に置く（`reviews.py` → `test_reviews.py`、`App.tsx` → `App.test.tsx`）
+- 型は `Any` / `as any` を使わない。mypy strict / tsc strict が通る形で書く
+- 秘密情報は `.env` に置く。新しい環境変数を足したら `.env.example` にも追記する
+- 設計判断をしたら `docs/adr/` に1ファイル追加する
 
 ## やらないこと
 
@@ -51,11 +59,10 @@ scripts/           開発用スクリプト
 - 型エラーを `# type: ignore` / `as any` で黙らせない。直せない理由があるならコメントで書く
 - 依頼されていないリファクタ・抽象化を追加しない
 - `.env`、認証情報、実データを含むファイルを読み書きしない
+- 開発サーバー（`make dev`）を起動したまま放置しない
 
 ## 環境構築
 
 ```bash
 make setup   # uv sync + pnpm install
 ```
-
-初回のみ。`.env.example` を `.env` にコピーして値を埋める。
