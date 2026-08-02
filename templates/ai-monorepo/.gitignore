@@ -1,0 +1,33 @@
+# 依存関係
+.venv/
+node_modules/
+
+# キャッシュ・生成物
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.tsbuildinfo
+
+# 秘密情報 — .env.example だけをコミットする
+.env
+.env.*
+!.env.example
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+!*.tfvars.example
+
+# OS / エディタ
+.DS_Store
+.idea/
+*.swp
+
+# Claude Code のローカル設定（settings.json はコミットする）
+.claude/settings.local.json
