@@ -9,6 +9,7 @@ AI活用プロダクトのアイデア検討と、それを自力で作るため
 | [IDEAS.md](IDEAS.md) | AI活用 × マネタイズのアイデア集。8案＋比較表＋次アクション |
 | [LEARNING_AWS.md](LEARNING_AWS.md) | AWS/インフラ学習ロードマップ。フェーズ1〜4＋資格の位置づけ |
 | [labs/01-serverless-api/](labs/01-serverless-api/) | ハンズオン: Terraformでサーバーレスapiを構築（フェーズ1） |
+| [templates/ai-monorepo/](templates/ai-monorepo/) | AI開発向けモノレポ雛形（Python + TypeScript）。新規プロジェクトの起点 |
 
 ## 進め方
 

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#
+# コミット前の検証。有効化: git config core.hooksPath .githooks
+#
+# CIで落ちるより先に手元で気づけるほうが速い。
+# 重いと skip される（--no-verify）ので、フォーマットと型に絞り、テストはCIに任せる。
+set -euo pipefail
+
+if git diff --cached --quiet; then
+  exit 0
+fi
+
+echo "[pre-commit] checking formatting and types..."
+
+if ! make --no-print-directory lint types; then
+  cat >&2 <<'EOF'
+
+[pre-commit] 検証に失敗しました。
+
+  make fmt     # 自動修正できるものを直す
+  make check   # 全体を確認
+
+どうしても急ぐ場合は git commit --no-verify で回避できますが、CIで落ちます。
+EOF
+  exit 1
+fi
+
+echo "[pre-commit] ok"

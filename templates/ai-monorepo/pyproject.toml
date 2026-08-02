@@ -1,0 +1,73 @@
+[project]
+name = "monorepo-root"
+version = "0.0.0"
+description = "workspace root (not a distributable package)"
+requires-python = ">=3.11"
+# workspace member を依存に入れることで、uv sync がその依存関係まで解決する。
+# ここに書き忘れると fastapi 等がインストールされず import エラーになる。
+dependencies = ["api"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["apps/api"]
+
+[tool.uv.sources]
+api = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "mypy>=1.11",
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "httpx2>=0.1",
+]
+
+##############################################################################
+# ruff — lint とフォーマットを1つのツールで賄う。
+# AIの反復ループでは「速いこと」自体が精度に効くので、単一バイナリを選ぶ。
+##############################################################################
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["apps/api/src"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # import順の自動整列
+    "N",   # 命名規約
+    "UP",  # 新しい構文への自動更新
+    "B",   # よくあるバグの検出
+    "SIM", # 冗長な書き方の指摘
+    "RUF",
+]
+# 意図的に無効化するものはここに理由付きで書く
+ignore = [
+    # RUF001-003: 全角括弧などを「紛らわしい文字」として警告する。
+    # 日本語でコメント・docstringを書く前提なので常に誤検知になる。
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+##############################################################################
+# mypy — strict。
+# 型エラーはAIにとって「無料の教師信号」になる。ここを緩めると効果が消える。
+##############################################################################
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+show_error_codes = true
+files = ["apps/api/src", "apps/api/tests"]
+
+##############################################################################
+# pytest
+##############################################################################
+[tool.pytest.ini_options]
+testpaths = ["apps/api/tests"]
+pythonpath = ["apps/api/src"]
+addopts = "-q --strict-markers"
