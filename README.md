@@ -14,12 +14,12 @@ AI活用プロダクトのアイデア検討と、それを自力で作るため
 
 ## PRコードレビュー
 
-ClaudeによるPRレビューを GitHub Actions で設定済み。**動かすには2つの初期設定が必要**:
+ClaudeによるPRレビューを GitHub Actions で設定済み。ただし**ファイルを置いただけでは動かない**。
 
-1. [Claude GitHub App](https://github.com/apps/claude) をこのリポジトリにインストール
-2. リポジトリシークレットに `ANTHROPIC_API_KEY` を登録
+PCから10〜15分の初期設定が必要:
+[docs/pr-code-review.md のセットアップ手順](docs/pr-code-review.md#bgithub-actionsのセットアップ手順)（Step 0〜5、ブラウザのみで完結）
 
-詳細と費用の抑え方は [docs/pr-code-review.md](docs/pr-code-review.md)。
+概略: PR #4 のマージ → GitHub App インストール → APIキー発行と上限設定 → シークレット登録 → 動作確認。
 
 ## 進め方
 
