@@ -31,26 +31,130 @@ Team/Enterprise なら A のほうが設定が楽で、出力も構造化され�
 | `REVIEW.md` | レビューの基準（重要度、指摘しないもの） |
 | `CLAUDE.md` | プロジェクト全体の前提。レビューもこれを読む |
 
-**動かすには以下の2つが必要。まだ未設定なら実施すること。**
+**ファイルを置いただけでは動かない。以下を上から順に実施する。**
+所要時間は10〜15分。ブラウザだけで完結する（ターミナル不要）。
 
-### 1. Claude GitHub App をインストール
+---
 
-https://github.com/apps/claude から対象リポジトリにインストールする。
+### Step 0. `main` のワークフローに `id-token: write` があるか確認
 
-必要な権限:
-- Contents: Read & write
-- Issues: Read & write
-- Pull requests: Read & write
+https://github.com/b-w-hiroki/AI_progect001/blob/main/.github/workflows/code-review.yml
+を開き、`permissions:` に `id-token: write` が含まれているか見る。
 
-### 2. `ANTHROPIC_API_KEY` をリポジトリシークレットに登録
+**無い場合は、それを追加するPR（#4）を先にマージすること。**
+初版にはこれが欠けており、そのままでは以降の設定をしても必ず失敗する。
 
-1. https://console.anthropic.com でAPIキーを発行
-2. リポジトリの Settings → Secrets and variables → Actions → New repository secret
-3. 名前を `ANTHROPIC_API_KEY` にして値を貼る
+あれば何もせず Step 1 へ。
 
-> APIキーをワークフローファイルに直接書かないこと。必ずシークレット経由にする。
+---
 
-これで次のPRからレビューが動く。
+### Step 1. Claude GitHub App をインストール
+
+1. https://github.com/apps/claude を開く
+2. **Install** → 対象アカウント（`b-w-hiroki`）を選択
+3. **Only select repositories** を選び、`AI_progect001` を指定
+4. **Install** で確定
+
+要求される権限（いずれも必要）:
+
+| 権限 | 用途 |
+|---|---|
+| Contents: Read & write | コードの読み取り、`@claude` での修正コミット |
+| Issues: Read & write | Issueへの応答 |
+| Pull requests: Read & write | レビューコメントの投稿 |
+
+> **All repositories は選ばないこと。** 個人の全リポジトリに書き込み権限を渡すことになる。
+
+---
+
+### Step 2. APIキーを発行し、使用量の上限を設定
+
+1. https://console.anthropic.com にログイン
+2. **API Keys** → **Create Key**
+   - 名前は用途が分かるものにする（例: `github-actions-AI_progect001`）
+   - **表示は1回きり。この画面を閉じる前にコピーする**
+3. **Limits**（または Usage）から**月額の上限を設定する**
+
+> 上限設定は飛ばさないこと。ワークフローの設定ミスでループした場合、
+> これが唯一のストッパーになる。学習用途なら月 $20〜30 程度から始めれば十分。
+
+キーを一時保存する場合は、メモアプリではなくパスワードマネージャに入れる。
+使い終わったら消す。
+
+---
+
+### Step 3. `ANTHROPIC_API_KEY` をリポジトリシークレットに登録
+
+1. https://github.com/b-w-hiroki/AI_progect001/settings/secrets/actions を開く
+   （リポジトリ → **Settings** → **Secrets and variables** → **Actions**）
+2. **New repository secret**
+3. Name: `ANTHROPIC_API_KEY` ← **この名前ちょうど**。前後の空白やスペル違いに注意
+4. Secret: Step 2 でコピーした値を貼る
+5. **Add secret**
+
+> - APIキーをワークフローファイルや `.env` に直接書かないこと
+> - 登録後は値を再表示できない。間違えたら **Update** で入れ直す
+> - Environment secrets ではなく **Repository secrets** に入れる（ワークフローが参照するのはこちら）
+
+---
+
+### Step 4. 動作確認
+
+適当な変更でPRを作る（このリポジトリなら README に1行足すだけでよい）。
+**ドラフトではなく通常のPRとして作成する** — ドラフトはレビュー対象外の設定にしてあるため。
+
+確認する場所:
+
+1. PRの **Checks** タブ、または Actions タブの `Code Review` ワークフロー
+2. 成功なら数分後にPRへレビューコメントが付く
+
+期待される結果:
+
+| 状態 | 意味 |
+|---|---|
+| `success` + PRにコメント | ✅ 完了 |
+| `skipped` | ドラフトPRのため。ドラフトを解除する |
+| 約20秒で `failure` | `id-token: write` が無い → Step 0 に戻る |
+| 認証エラーで `failure` | シークレットの名前か値が違う → Step 3 をやり直す |
+| そもそも起動しない | App未インストール → Step 1 に戻る |
+
+ログは Actions タブ → 該当の run → `review` ジョブで読める。
+ログ中に `ANTHROPIC_API_KEY:` が**空**で出ていたら、シークレットが読めていない。
+
+---
+
+### Step 5.（任意）レビューの粒度を調整
+
+数回動かしてみて、指摘が細かすぎる・的外れだと感じたら `REVIEW.md` を編集する。
+調整の勘所は後述の「レビュー内容の調整」を参照。
+
+---
+
+### 参考: なぜ `id-token: write` が要るのか
+
+（設定済みなので対応不要。テンプレートを他所で使い回すときのための記録）
+
+`claude-code-action` は GitHub トークンの取得に OIDC を使う。
+そのため以下が**両方のワークフローで必須**。
+
+```yaml
+permissions:
+  contents: read        # claude.yml は write（修正をコミットするため）
+  pull-requests: write
+  issues: write
+  id-token: write       # ← これが無いと即座に失敗する
+```
+
+AWS/GCP 連携用の権限だと誤解しやすいが、**APIキー方式でも必要**。
+欠けていると起動から約20秒で以下のエラーで落ちる。
+
+```
+Could not fetch an OIDC token.
+Did you remember to add `id-token: write` to your workflow permissions?
+```
+
+APIキーの検証より前の段階で失敗するので、
+「シークレットは設定したのに動かない」ときは、まずここを疑う。
 
 ---
 
@@ -149,20 +253,34 @@ PRでのコマンド:
 
 ---
 
-## 未検証事項
+## 検証状況
 
-`.github/workflows/*.yml` は、この環境からGitHub Actionsを起動できないため
-**実行しての検証はしていない**（YAML構文の妥当性のみ確認済み）。
+PR #3 で実際に起動し、以下まで確認できている。
 
-初回PRで以下を確認すること:
+| 項目 | 結果 |
+|---|---|
+| ドラフトPRでジョブが `skipped` になる | ✅ ガードは正常動作 |
+| ドラフト解除で `ready_for_review` が発火する | ✅ 起動条件は正常 |
+| アクションが最後まで完走する | ❌ **未確認**（下記の理由で失敗した） |
+| レビューコメントの投稿 | ❌ **未確認** |
+| `@claude` への応答 | ❌ **未確認** |
 
-- [ ] `Code Review` ワークフローが起動する
+初回実行は `id-token: write` の欠落で失敗した（現在は修正済み）。
+`ANTHROPIC_API_KEY` も未登録だったため、権限を直しても
+シークレットを登録するまでは完走しない。
+
+次のPRで以下を確認すること:
+
+- [ ] `Code Review` ワークフローが完走する（`conclusion: success`）
 - [ ] レビューコメントがPRに投稿される
 - [ ] `@claude` コメントに `Claude` ワークフローが反応する
 - [ ] 指摘の粒度が `REVIEW.md` の意図と合っている（合わなければ調整）
 
 うまく動かない場合の確認順:
 
-1. Actions タブでジョブが起動しているか（起動していない → `on:` の条件かApp未インストール）
-2. ジョブのログに認証エラーが出ていないか（→ `ANTHROPIC_API_KEY` 未設定・無効）
-3. `permissions` が足りているか（→ コメント投稿には `pull-requests: write` が必要）
+1. Actions タブでジョブが起動しているか
+   - 起動していない → `on:` の条件、ドラフト状態、またはApp未インストール
+   - `skipped` になっている → ドラフトPRのため（意図した挙動）
+2. 20秒程度で落ちている → `id-token: write` の欠落を疑う（最頻）
+3. ログの `ANTHROPIC_API_KEY:` が空 → シークレット未登録
+4. コメントが投稿されない → `pull-requests: write` の欠落
