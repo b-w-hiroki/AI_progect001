@@ -15,6 +15,17 @@ make dev                                 # API :8000 / Web :5173
 ./scripts/bootstrap.sh my-project --strip-samples
 ```
 
+### GitHubに置いたあと（PRレビューを使う場合）
+
+`.github/workflows/code-review.yml` と `claude.yml` が入っているが、
+**動かすには2つの初期設定が要る**。不要ならこの2ファイルを削除する。
+
+1. [Claude GitHub App](https://github.com/apps/claude) をリポジトリにインストール
+2. リポジトリシークレットに `ANTHROPIC_API_KEY` を登録
+   （Settings → Secrets and variables → Actions）
+
+レビューの基準は `REVIEW.md` で調整する。
+
 ---
 
 ## 何が入っているか
@@ -100,6 +111,7 @@ AIは速く動ける分、壊すのも速い。
 | パス | 役割 |
 |---|---|
 | `CLAUDE.md` | **最重要。** AIが毎ターン読む前提情報 |
+| `REVIEW.md` | PRレビューの基準（重要度、指摘しないもの） |
 | `Makefile` | すべての入口。`setup` / `dev` / `watch` / `check` / `check-fast` / `fmt` |
 | `scripts/bootstrap.sh` | テンプレート→プロジェクト変換 |
 | `.githooks/pre-commit` | コミット前に lint + 型チェック |
@@ -112,6 +124,8 @@ AIは速く動ける分、壊すのも速い。
 | `apps/web/` | Vite + React フロントエンド |
 | `docs/adr/` | 設計判断の記録 |
 | `.github/workflows/ci.yml` | `make check` と同じものを回す |
+| `.github/workflows/code-review.yml` | PR作成時にClaudeがコードレビュー |
+| `.github/workflows/claude.yml` | コメントの `@claude` に応答・修正 |
 
 ## CLAUDE.md の書き方
 

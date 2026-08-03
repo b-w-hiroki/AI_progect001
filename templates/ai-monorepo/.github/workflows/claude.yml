@@ -1,0 +1,46 @@
+name: Claude
+
+# PRやIssueのコメントで @claude と書くと応答する。
+#
+# 用途はレビューの後工程:
+#   - 「@claude この指摘を直して」→ 修正をコミットさせる
+#   - 「@claude なぜこの実装にした?」→ 意図を説明させる
+#
+# code-review.yml が「指摘する」担当、こちらが「対話・修正する」担当。
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false # 修正作業を途中で止めない
+
+permissions:
+  contents: write # 修正をコミットさせるため
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude:
+    # @claude を含むコメントのときだけ起動する。
+    # この条件が無いと全コメントでジョブが立ち上がり課金される。
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --max-turns 20
