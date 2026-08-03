@@ -23,6 +23,9 @@ permissions:
   contents: write # 修正をコミットさせるため
   pull-requests: write
   issues: write
+  # 必須。claude-code-action はGitHubトークンの取得にOIDCを使うため、
+  # これが無いと "Could not fetch an OIDC token" で即座に失敗する。
+  id-token: write
 
 jobs:
   claude:

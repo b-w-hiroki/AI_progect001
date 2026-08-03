@@ -26,6 +26,10 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  # 必須。claude-code-action はGitHubトークンの取得にOIDCを使うため、
+  # これが無いと "Could not fetch an OIDC token" で即座に失敗する。
+  # AWS連携用の権限だと誤解しやすいが、APIキー方式でも必要。
+  id-token: write
 
 jobs:
   review:

@@ -52,6 +52,30 @@ https://github.com/apps/claude から対象リポジトリにインストール�
 
 これで次のPRからレビューが動く。
 
+### `permissions` に `id-token: write` が必須
+
+`claude-code-action` は GitHub トークンの取得に OIDC を使う。
+そのため以下が**両方のワークフローで必須**。
+
+```yaml
+permissions:
+  contents: read        # claude.yml は write（修正をコミットするため）
+  pull-requests: write
+  issues: write
+  id-token: write       # ← これが無いと即座に失敗する
+```
+
+AWS/GCP 連携用の権限だと誤解しやすいが、**APIキー方式でも必要**。
+欠けていると起動から約20秒で以下のエラーで落ちる。
+
+```
+Could not fetch an OIDC token.
+Did you remember to add `id-token: write` to your workflow permissions?
+```
+
+APIキーの検証より前の段階で失敗するので、
+「シークレットは設定したのに動かない」ときは、まずここを疑う。
+
 ---
 
 ## 費用を抑える設定
@@ -149,20 +173,34 @@ PRでのコマンド:
 
 ---
 
-## 未検証事項
+## 検証状況
 
-`.github/workflows/*.yml` は、この環境からGitHub Actionsを起動できないため
-**実行しての検証はしていない**（YAML構文の妥当性のみ確認済み）。
+PR #3 で実際に起動し、以下まで確認できている。
 
-初回PRで以下を確認すること:
+| 項目 | 結果 |
+|---|---|
+| ドラフトPRでジョブが `skipped` になる | ✅ ガードは正常動作 |
+| ドラフト解除で `ready_for_review` が発火する | ✅ 起動条件は正常 |
+| アクションが最後まで完走する | ❌ **未確認**（下記の理由で失敗した） |
+| レビューコメントの投稿 | ❌ **未確認** |
+| `@claude` への応答 | ❌ **未確認** |
 
-- [ ] `Code Review` ワークフローが起動する
+初回実行は `id-token: write` の欠落で失敗した（現在は修正済み）。
+`ANTHROPIC_API_KEY` も未登録だったため、権限を直しても
+シークレットを登録するまでは完走しない。
+
+次のPRで以下を確認すること:
+
+- [ ] `Code Review` ワークフローが完走する（`conclusion: success`）
 - [ ] レビューコメントがPRに投稿される
 - [ ] `@claude` コメントに `Claude` ワークフローが反応する
 - [ ] 指摘の粒度が `REVIEW.md` の意図と合っている（合わなければ調整）
 
 うまく動かない場合の確認順:
 
-1. Actions タブでジョブが起動しているか（起動していない → `on:` の条件かApp未インストール）
-2. ジョブのログに認証エラーが出ていないか（→ `ANTHROPIC_API_KEY` 未設定・無効）
-3. `permissions` が足りているか（→ コメント投稿には `pull-requests: write` が必要）
+1. Actions タブでジョブが起動しているか
+   - 起動していない → `on:` の条件、ドラフト状態、またはApp未インストール
+   - `skipped` になっている → ドラフトPRのため（意図した挙動）
+2. 20秒程度で落ちている → `id-token: write` の欠落を疑う（最頻）
+3. ログの `ANTHROPIC_API_KEY:` が空 → シークレット未登録
+4. コメントが投稿されない → `pull-requests: write` の欠落
