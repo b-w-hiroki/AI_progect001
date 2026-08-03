@@ -1,0 +1,53 @@
+name: Code Review
+
+# PRのコードレビューをClaudeに実行させる。
+#
+# 既定では「PR作成時」と「ドラフト解除時」にのみ動かす。
+# types に synchronize を足すと毎プッシュで走るが、そのぶんトークン費用が増える。
+# ソロ開発では往々にしてプッシュ回数が多いので、まずはこの設定から始める。
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+  # 手動で再レビューしたいとき用。PR番号の指定が必須
+  workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: "レビュー対象のPR番号"
+        required: true
+        type: string
+
+# 同じPRで連続実行されたら古いほうを止める（無駄な課金を避ける）
+concurrency:
+  group: code-review-${{ github.event.pull_request.number || inputs.pull_request_number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    # ドラフトPRは自動レビューしない。手動実行なら常に走らせる
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 差分の前後関係を見られるように全履歴を取る
+
+      - name: Run Claude code review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          # pull_request イベントなら event から、手動実行なら入力から番号を取る。
+          # どちらか片方しか値が入らないので || で拾える。
+          prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number || inputs.pull_request_number }}"
+          claude_args: |
+            --max-turns 20
