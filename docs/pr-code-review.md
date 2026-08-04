@@ -180,8 +180,21 @@ on:
 - `timeout-minutes: 30` — ジョブ全体の上限
 - `claude.yml` の `if` 条件 — `@claude` を含むコメントのときだけジョブを起動する
 
-手動で再レビューしたいときは、Actions タブから `Code Review` ワークフローを
-`workflow_dispatch` で実行する。
+### 再レビューを走らせる方法
+
+`synchronize` を有効にしていない構成では、プッシュしてもレビューは再実行されない。
+手動で走らせる手段は3つある。
+
+| 方法 | 手順 | 向いている場面 |
+|---|---|---|
+| **ドラフトに戻して解除** | PR画面で `Convert to draft` → `Ready for review` | 最も手軽。PR番号の入力も不要 |
+| `workflow_dispatch` | Actions タブ → `Code Review` → `Run workflow` → PR番号を入力 | 対象PRを明示したいとき |
+| 空コミット | `git commit --allow-empty` してプッシュ | `synchronize` を有効にしている場合のみ有効 |
+
+> **GitHub Actions のAPI経由での再実行には `actions: write` 権限が必要。**
+> 権限を持たない連携（Claude Code の GitHub 連携を含む）からは、
+> `workflow_dispatch` も失敗ジョブの再実行も `403 Resource not accessible by integration`
+> で拒否される。再実行は上表のいずれかを人が操作すること。
 
 ---
 
