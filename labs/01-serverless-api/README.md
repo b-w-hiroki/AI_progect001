@@ -119,7 +119,25 @@ POSTすると500が返るはず。ログには `AccessDeniedException` が出る
 `timeout = 1` にして `apply`。まだ動くはず。
 フェーズ2でLLMを呼ぶとき、この値が3秒のままだと何が起きるかを想像する。
 
-### 5. 必ず片付ける
+### 5. 採点する
+
+演習で壊した状態から戻せているか、自分では気づきにくい。採点ツールにかける。
+
+```bash
+cd ../../tools/atlas && uv sync
+uv run atlas check 01-serverless-api
+```
+
+未達成の項目名だけが出る。直し方は出ない。詰まったら1段ずつヒントを開く:
+
+```bash
+uv run atlas hint 01-serverless-api <検証項目のid>
+```
+
+`terraform` や AWS CLI が無い環境では、それを使う項目は「判定できません」となり
+完了扱いにはならない。詳細は [tools/atlas/README.md](../../tools/atlas/README.md)。
+
+### 6. 必ず片付ける
 
 ```bash
 terraform destroy
