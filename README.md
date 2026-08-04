@@ -18,9 +18,10 @@ AI活用プロダクトのアイデア検討と、それを自力で作るため
 ClaudeによるPRレビューを GitHub Actions で設定済み。ただし**ファイルを置いただけでは動かない**。
 
 PCから10〜15分の初期設定が必要:
-[docs/pr-code-review.md のセットアップ手順](docs/pr-code-review.md#bgithub-actionsのセットアップ手順)（Step 0〜5、ブラウザのみで完結）
+[docs/pr-code-review.md のセットアップ手順](docs/pr-code-review.md#bgithub-actionsのセットアップ手順)（Step 0〜5。Step 2 のみターミナルを使う）
 
-概略: PR #4 のマージ → GitHub App インストール → APIキー発行と上限設定 → シークレット登録 → 動作確認。
+概略: GitHub App インストール → PCで `claude setup-token` → シークレット `CLAUDE_CODE_OAUTH_TOKEN` の登録 → 動作確認。
+サブスクリプション方式なので、APIキーの発行と上限設定は不要。
 
 ## 進め方
 
