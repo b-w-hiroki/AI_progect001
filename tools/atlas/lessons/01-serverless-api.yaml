@@ -1,0 +1,97 @@
+id: 01-serverless-api
+title: サーバーレスAPIをTerraformで構築する
+summary: >-
+  API Gateway・Lambda・DynamoDB を Terraform だけで構築し、
+  IAMの最小権限とログ保持期間を自分で設定できる状態になる。
+
+objectives:
+  - Terraform で Lambda / API Gateway / DynamoDB を定義できる
+  - IAMロールの信頼ポリシーと権限ポリシーの違いを説明できる
+  - IAMポリシーを必要な権限だけに絞って書ける
+  - ロググループの保持期間を設定し、消し忘れによる課金を防げる
+
+target_dir: labs/01-serverless-api
+reference: labs/01-serverless-api/README.md
+
+checks:
+  # --- 静的検査: AWSに繋がなくても採点できる ---
+
+  - id: tf-formatted
+    title: Terraformが整形されている
+    type: command_succeeds
+    command: ["terraform", "fmt", "-check", "-recursive"]
+    hints:
+      - 整形が崩れています。Terraform には整形を自動で行うコマンドがあります。
+      - "`terraform fmt` は引数なしで実行すると、その場でファイルを書き換えます。"
+      - "対象ディレクトリで `terraform fmt -recursive` を実行してください。"
+
+  - id: lambda-defined
+    title: Lambda関数が定義されている
+    type: file_matches
+    path: main.tf
+    pattern: 'resource\s+"aws_lambda_function"'
+    hints:
+      - main.tf に Lambda 関数のリソースがまだありません。
+      - Terraform で Lambda を作るリソース型を AWS Provider のドキュメントで探してください。
+      - "`aws_lambda_function` リソースを定義します。role / handler / runtime が必須です。"
+
+  - id: dynamodb-defined
+    title: DynamoDBテーブルが定義されている
+    type: file_matches
+    path: main.tf
+    pattern: 'resource\s+"aws_dynamodb_table"'
+    hints:
+      - レビューの保存先がまだ定義されていません。
+      - 起動費のかからない課金モードを選ぶと、学習中に費用が発生しません。
+      - "`aws_dynamodb_table` を定義し、billing_mode に PAY_PER_REQUEST を指定します。"
+
+  - id: log-retention-set
+    title: ロググループに保持期間が設定されている
+    type: file_matches
+    path: main.tf
+    pattern: 'retention_in_days'
+    hints:
+      - Lambda のログが無期限に残る設定になっています。消し忘れると課金が続きます。
+      - ロググループを Terraform 側で明示的に作れば、保持期間を指定できます。
+      - "`aws_cloudwatch_log_group` に `retention_in_days` を設定してください。"
+
+  - id: no-wildcard-action
+    title: IAMポリシーにワイルドカードが無い
+    type: file_not_matches
+    path: main.tf
+    pattern: '"Action"\s*:\s*"\*"|actions\s*=\s*\[\s*"\*"\s*\]'
+    hints:
+      - IAMポリシーで全アクションを許可しています。必要な権限だけに絞ってください。
+      - どの操作が必要かは、Lambda のコードが呼んでいるAPIから逆算できます。
+      - "ログ書き込みと、対象テーブルへの PutItem / Query だけを列挙します。"
+
+  - id: no-wildcard-resource
+    title: IAMポリシーのResourceが限定されている
+    type: file_not_matches
+    path: main.tf
+    pattern: 'resources\s*=\s*\[\s*"\*"\s*\]'
+    hints:
+      - IAMポリシーの対象リソースが全指定になっています。
+      - Terraform ではリソースのARNを属性として参照できます。
+      - "`resources = [aws_dynamodb_table.<name>.arn]` のように、作ったリソースを参照します。"
+
+  - id: destroy-safe
+    title: Terraformの構成が妥当である
+    type: command_succeeds
+    command: ["terraform", "validate"]
+    hints:
+      - 構成にエラーがあります。まず `terraform init` を実行しましたか。
+      - "`terraform validate` の出力に、問題のあるファイルと行番号が出ています。"
+      - 参照しているリソース名やattribute名の綴りを確認してください。
+
+  # --- 実リソース検査: 認証情報がある場合のみ実行される ---
+
+  - id: table-deployed
+    title: DynamoDBテーブルが実際に作成されている
+    type: aws_resource_exists
+    requires_aws: true
+    command: ["aws", "dynamodb", "describe-table", "--table-name", "lab01-reviews-reviews"]
+    hints:
+      - まだデプロイされていません。ローカルの定義だけでは完了になりません。
+      - "`terraform plan` で、作られる予定のリソースを先に確認してください。"
+      - "`terraform apply` を実行します。**確認が終わったら必ず `terraform destroy` してください。**"
