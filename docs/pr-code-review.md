@@ -255,19 +255,21 @@ PRでのコマンド:
 
 ## 検証状況
 
-PR #3 で実際に起動し、以下まで確認できている。
+PR #3・#4 で実際に起動し、以下まで確認できている。
 
 | 項目 | 結果 |
 |---|---|
 | ドラフトPRでジョブが `skipped` になる | ✅ ガードは正常動作 |
 | ドラフト解除で `ready_for_review` が発火する | ✅ 起動条件は正常 |
-| アクションが最後まで完走する | ❌ **未確認**（下記の理由で失敗した） |
+| OIDC → GitHub App トークンの交換 | ✅ `id-token: write` 追加後に成功 |
+| Claude Code のインストール | ✅ v2.1.220 |
+| アクションが最後まで完走する | ❌ **未確認** |
 | レビューコメントの投稿 | ❌ **未確認** |
 | `@claude` への応答 | ❌ **未確認** |
 
-初回実行は `id-token: write` の欠落で失敗した（現在は修正済み）。
-`ANTHROPIC_API_KEY` も未登録だったため、権限を直しても
-シークレットを登録するまでは完走しない。
+PR #4 の実行ログで、Claude GitHub App が**インストール済みであることも確認できた**
+（OIDC からアプリトークンへの交換が成功しているため）。
+残るのは `ANTHROPIC_API_KEY` の登録のみだった。
 
 次のPRで以下を確認すること:
 
@@ -276,11 +278,40 @@ PR #3 で実際に起動し、以下まで確認できている。
 - [ ] `@claude` コメントに `Claude` ワークフローが反応する
 - [ ] 指摘の粒度が `REVIEW.md` の意図と合っている（合わなければ調整）
 
-うまく動かない場合の確認順:
+### 失敗時の切り分け
 
-1. Actions タブでジョブが起動しているか
-   - 起動していない → `on:` の条件、ドラフト状態、またはApp未インストール
-   - `skipped` になっている → ドラフトPRのため（意図した挙動）
-2. 20秒程度で落ちている → `id-token: write` の欠落を疑う（最頻）
-3. ログの `ANTHROPIC_API_KEY:` が空 → シークレット未登録
-4. コメントが投稿されない → `pull-requests: write` の欠落
+**ジョブが起動しない**
+`on:` の条件、ドラフト状態、またはApp未インストール。
+
+**`skipped` で終わる**
+ドラフトPRのため。意図した挙動なので、ドラフトを解除する。
+
+**約20秒で `failure`。ログに以下:**
+
+```
+Could not fetch an OIDC token.
+Did you remember to add `id-token: write` to your workflow permissions?
+```
+
+→ `permissions` に `id-token: write` が無い。
+
+**約10秒で `failure`。ログに以下:**
+
+```
+Environment variable validation failed:
+  - Either ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, or workload identity
+    federation (ANTHROPIC_FEDERATION_RULE_ID and ANTHROPIC_ORGANIZATION_ID)
+    is required when using direct Anthropic API.
+```
+
+→ シークレットが読めていない。同じログの `ANTHROPIC_API_KEY:` が空になっている。
+Repository secrets に `ANTHROPIC_API_KEY` という名前ちょうどで登録されているか確認する
+（Variables タブや Environment secrets に入れた場合もこれになる）。
+
+**コメントが投稿されない**
+`pull-requests: write` の欠落。
+
+> どこまで進んだかは、ログの以下の行で判断できる。
+> `OIDC token successfully obtained` → `App token successfully obtained`
+> → `Claude Code successfully installed!` の順に出る。
+> どこで止まったかが、そのまま原因の切り分けになる。
