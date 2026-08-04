@@ -47,7 +47,11 @@ jobs:
       - name: Run Claude code review
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 認証はサブスクリプション方式。ローカルで `claude setup-token` を実行して
+          # 得たトークンを、リポジトリシークレット CLAUDE_CODE_OAUTH_TOKEN に登録する。
+          # 従量課金にしたい場合は anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }} に差し替える。
+          # トークンには有効期限があるので、認証エラーで落ちたら再発行する。
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
           # pull_request イベントなら event から、手動実行なら入力から番号を取る。

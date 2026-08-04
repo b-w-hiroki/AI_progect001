@@ -21,8 +21,13 @@ make dev                                 # API :8000 / Web :5173
 **動かすには2つの初期設定が要る**。不要ならこの2ファイルを削除する。
 
 1. [Claude GitHub App](https://github.com/apps/claude) をリポジトリにインストール
-2. リポジトリシークレットに `ANTHROPIC_API_KEY` を登録
-   （Settings → Secrets and variables → Actions）
+2. PCで `claude setup-token` を実行し、出たトークンを
+   **Repository secrets** に `CLAUDE_CODE_OAUTH_TOKEN` として登録
+   （Settings → Secrets and variables → Actions → Secrets タブ）
+
+Variables タブや Environment secrets に入れると読めないので注意。
+従量課金のAPIキー方式にするなら、ワークフローの `claude_code_oauth_token:` の行を
+`anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}` に差し替える。
 
 レビューの基準は `REVIEW.md` で調整する。
 

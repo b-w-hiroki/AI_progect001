@@ -9,7 +9,7 @@ ClaudeにPRのコードレビューをさせる設定。方式が2つあり、�
 | 実体 | Anthropic側のインフラで実行 | 自分のGitHub Actions上で実行 |
 | プラン | **Team / Enterprise 限定**（research preview） | 制限なし |
 | 設定 | 管理画面でリポジトリを選ぶだけ | ワークフローファイル + シークレット |
-| APIキー | 不要 | `ANTHROPIC_API_KEY` が必要（またはBedrock） |
+| 認証 | 不要 | `CLAUDE_CODE_OAUTH_TOKEN` かAPIキーが必要（またはBedrock） |
 | 出力 | 該当行へのインラインコメント + `Claude Code Review` チェックラン + 重要度別の一覧 | PRコメント |
 | 重要度 | 🔴 Important / 🟡 Nit / 🟣 Pre-existing のタグ付き | プロンプト次第 |
 | 費用 | 1レビュー **$15〜25**。usage credits から別建てで請求 | APIトークン + Actions実行時間 |
@@ -32,7 +32,23 @@ Team/Enterprise なら A のほうが設定が楽で、出力も構造化され�
 | `CLAUDE.md` | プロジェクト全体の前提。レビューもこれを読む |
 
 **ファイルを置いただけでは動かない。以下を上から順に実施する。**
-所要時間は10〜15分。ブラウザだけで完結する（ターミナル不要）。
+所要時間は10〜15分。Step 2 でPCのターミナルを使う（それ以外はブラウザで完結）。
+
+#### 認証方式について
+
+ワークフローは **サブスクリプション方式（`CLAUDE_CODE_OAUTH_TOKEN`）** を使う設定にしてある。
+
+| | サブスクリプション方式（採用） | APIキー方式 |
+|---|---|---|
+| シークレット名 | `CLAUDE_CODE_OAUTH_TOKEN` | `ANTHROPIC_API_KEY` |
+| 発行方法 | PCで `claude setup-token` | console.anthropic.com |
+| 費用 | 契約中のプランの枠内 | 従量課金（使った分だけ請求） |
+| 前提 | Claude の有料プラン | クレジットカード登録 |
+| 弱点 | **トークンに有効期限がある**。切れたら再発行 | 上限設定を忘れると青天井 |
+
+APIキー方式に戻すなら、ワークフローの `claude_code_oauth_token:` の行を
+`anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}` に差し替える。両方式とも
+`id-token: write` は必要（後述）。
 
 ---
 
@@ -67,34 +83,43 @@ https://github.com/b-w-hiroki/AI_progect001/blob/main/.github/workflows/code-rev
 
 ---
 
-### Step 2. APIキーを発行し、使用量の上限を設定
+### Step 2. トークンを発行する（PCのターミナル）
 
-1. https://console.anthropic.com にログイン
-2. **API Keys** → **Create Key**
-   - 名前は用途が分かるものにする（例: `github-actions-AI_progect001`）
-   - **表示は1回きり。この画面を閉じる前にコピーする**
-3. **Limits**（または Usage）から**月額の上限を設定する**
+Claude Code がインストール済みのPCで実行する。
 
-> 上限設定は飛ばさないこと。ワークフローの設定ミスでループした場合、
-> これが唯一のストッパーになる。学習用途なら月 $20〜30 程度から始めれば十分。
+```bash
+claude setup-token
+```
 
-キーを一時保存する場合は、メモアプリではなくパスワードマネージャに入れる。
-使い終わったら消す。
+ブラウザが開いて認証を求められる。承認するとターミナルにトークンが表示されるので、
+**その画面を閉じる前にコピーする**。
+
+- Claude の有料プランが必要（このコマンドはプランの認証を使う）
+- Claude Code が未導入なら `npm install -g @anthropic-ai/claude-code`
+- **トークンには有効期限がある。** 切れたら同じ手順で再発行してシークレットを更新する
+
+一時保存する場合は、メモアプリではなくパスワードマネージャに入れる。使い終わったら消す。
 
 ---
 
-### Step 3. `ANTHROPIC_API_KEY` をリポジトリシークレットに登録
+### Step 3. `CLAUDE_CODE_OAUTH_TOKEN` をリポジトリシークレットに登録
 
 1. https://github.com/b-w-hiroki/AI_progect001/settings/secrets/actions を開く
    （リポジトリ → **Settings** → **Secrets and variables** → **Actions**）
-2. **New repository secret**
-3. Name: `ANTHROPIC_API_KEY` ← **この名前ちょうど**。前後の空白やスペル違いに注意
-4. Secret: Step 2 でコピーした値を貼る
-5. **Add secret**
+2. 画面上部のタブが **Secrets** になっていることを確認する
+   （**Variables** タブに入れても、ワークフローからは読めない）
+3. **New repository secret**
+4. Name: `CLAUDE_CODE_OAUTH_TOKEN` ← **この名前ちょうど**。前後の空白やスペル違いに注意
+5. Secret: Step 2 でコピーした値を貼る
+6. **Add secret**
 
-> - APIキーをワークフローファイルや `.env` に直接書かないこと
+登録後、**Repository secrets** の一覧にこの名前が出ていることを目で確認する。
+ここに出ていなければ、ワークフローからは空文字として渡る。
+
+> - トークンをワークフローファイルや `.env` に直接書かないこと
 > - 登録後は値を再表示できない。間違えたら **Update** で入れ直す
-> - Environment secrets ではなく **Repository secrets** に入れる（ワークフローが参照するのはこちら）
+> - **Environment secrets / Dependabot secrets ではなく Repository secrets に入れる。**
+>   見た目が似ているが、ワークフローが参照するのは Repository secrets だけ
 
 ---
 
@@ -115,11 +140,13 @@ https://github.com/b-w-hiroki/AI_progect001/blob/main/.github/workflows/code-rev
 | `success` + PRにコメント | ✅ 完了 |
 | `skipped` | ドラフトPRのため。ドラフトを解除する |
 | 約20秒で `failure` | `id-token: write` が無い → Step 0 に戻る |
-| 認証エラーで `failure` | シークレットの名前か値が違う → Step 3 をやり直す |
+| 約30秒で `Environment variable validation failed` | シークレットが読めていない → Step 3 をやり直す |
+| 認証エラーで `failure` | トークンの期限切れ → Step 2 で再発行する |
 | そもそも起動しない | App未インストール → Step 1 に戻る |
 
 ログは Actions タブ → 該当の run → `review` ジョブで読める。
-ログ中に `ANTHROPIC_API_KEY:` が**空**で出ていたら、シークレットが読めていない。
+ログの冒頭に環境変数の一覧が出るので、`CLAUDE_CODE_OAUTH_TOKEN:` の行を見る。
+**空で出ていたらシークレットが読めていない**（値が入っていれば `***` と伏字になる）。
 
 ---
 
@@ -145,7 +172,7 @@ permissions:
   id-token: write       # ← これが無いと即座に失敗する
 ```
 
-AWS/GCP 連携用の権限だと誤解しやすいが、**APIキー方式でも必要**。
+AWS/GCP 連携用の権限だと誤解しやすいが、**認証方式に関係なく必要**。
 欠けていると起動から約20秒で以下のエラーで落ちる。
 
 ```
@@ -153,7 +180,7 @@ Could not fetch an OIDC token.
 Did you remember to add `id-token: write` to your workflow permissions?
 ```
 
-APIキーの検証より前の段階で失敗するので、
+認証情報の検証より前の段階で失敗するので、
 「シークレットは設定したのに動かない」ときは、まずここを疑う。
 
 ---
@@ -268,21 +295,25 @@ PRでのコマンド:
 
 ## 検証状況
 
-PR #3・#4 で実際に起動し、以下まで確認できている。
+PR #3・#4・#7 で実際に起動し、以下まで確認できている。
 
 | 項目 | 結果 |
 |---|---|
 | ドラフトPRでジョブが `skipped` になる | ✅ ガードは正常動作 |
 | ドラフト解除で `ready_for_review` が発火する | ✅ 起動条件は正常 |
 | OIDC → GitHub App トークンの交換 | ✅ `id-token: write` 追加後に成功 |
-| Claude Code のインストール | ✅ v2.1.220 |
-| アクションが最後まで完走する | ❌ **未確認** |
+| 実行者の権限チェック | ✅ `admin` として認識 |
+| Claude Code のインストール | ✅ v2.1.221 |
+| アクションが最後まで完走する | ❌ **未確認**（認証情報が空のため中断） |
 | レビューコメントの投稿 | ❌ **未確認** |
 | `@claude` への応答 | ❌ **未確認** |
 
-PR #4 の実行ログで、Claude GitHub App が**インストール済みであることも確認できた**
-（OIDC からアプリトークンへの交換が成功しているため）。
-残るのは `ANTHROPIC_API_KEY` の登録のみだった。
+PR #7（ドラフト解除）のログで、認証情報の欠落**以外は全て通っている**ことが確定した。
+失敗地点は Claude Code インストール直後の環境変数バリデーションで、所要は約13秒。
+
+APIキーを2回登録し直しても `ANTHROPIC_API_KEY:` が空のままだったため、
+**サブスクリプション方式（`CLAUDE_CODE_OAUTH_TOKEN`）に切り替えた。**
+APIキー自体の発行が不要になり、確認すべき箇所が減る。
 
 次のPRで以下を確認すること:
 
@@ -308,7 +339,7 @@ Did you remember to add `id-token: write` to your workflow permissions?
 
 → `permissions` に `id-token: write` が無い。
 
-**約10秒で `failure`。ログに以下:**
+**約30秒で `failure`。ログに以下:**
 
 ```
 Environment variable validation failed:
@@ -317,9 +348,17 @@ Environment variable validation failed:
     is required when using direct Anthropic API.
 ```
 
-→ シークレットが読めていない。同じログの `ANTHROPIC_API_KEY:` が空になっている。
-Repository secrets に `ANTHROPIC_API_KEY` という名前ちょうどで登録されているか確認する
-（Variables タブや Environment secrets に入れた場合もこれになる）。
+→ シークレットが読めていない。同じログの `CLAUDE_CODE_OAUTH_TOKEN:` が空になっている。
+Repository secrets にこの名前ちょうどで登録されているか確認する。
+**名前が正しくてもこうなる場合は、置き場所が違う。** 以下はいずれも別物で、
+ワークフローからは読めない:
+
+- **Variables** タブ（Secrets タブの隣。UIが似ているので取り違えやすい）
+- **Environment secrets**（同じ画面の下部にある）
+- **Dependabot secrets**（左メニューの別項目）
+
+**認証エラーで `failure`（トークンは読めている）**
+`claude setup-token` で発行したトークンの有効期限切れ。再発行してシークレットを更新する。
 
 **コメントが投稿されない**
 `pull-requests: write` の欠落。
