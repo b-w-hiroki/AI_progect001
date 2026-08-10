@@ -139,8 +139,9 @@ claude setup-token
 |---|---|
 | `success` + PRにコメント | ✅ 完了 |
 | `skipped` | ドラフトPRのため。ドラフトを解除する |
+| 数秒で「認証シークレットの事前チェック」が `failure` | シークレット未登録。**PRに手順コメントが自動で付く**のでそれに従う → Step 3 |
 | 約20秒で `failure` | `id-token: write` が無い → Step 0 に戻る |
-| 約30秒で `Environment variable validation failed` | シークレットが読めていない → Step 3 をやり直す |
+| 約30秒で `Environment variable validation failed` | 通常は事前チェックが先に止めるので出ないはず。出たら Step 3 をやり直す |
 | 認証エラーで `failure` | トークンの期限切れ → Step 2 で再発行する |
 | そもそも起動しない | App未インストール → Step 1 に戻る |
 
