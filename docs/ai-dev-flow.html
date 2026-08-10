@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI開発の進め方フロー</title>
+<style>
+  :root {
+    --ink: #1f2937;
+    --sub: #6b7280;
+    --line: #d1d5db;
+    --green: #059669; --green-bg: #ecfdf5; --green-line: #a7f3d0;
+    --amber: #b45309; --amber-bg: #fffbeb; --amber-line: #fde68a;
+    --blue: #1d4ed8;  --blue-bg: #eff6ff;  --blue-line: #bfdbfe;
+    --violet: #6d28d9; --violet-bg: #f5f3ff; --violet-line: #ddd6fe;
+    --red: #b91c1c; --red-bg: #fef2f2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+    background: #f9fafb; color: var(--ink);
+    padding: 40px 16px 64px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { text-align: center; font-size: 24px; font-weight: 700; }
+  .subtitle { text-align: center; color: var(--sub); font-size: 13px; margin: 6px 0 36px; }
+
+  .col-center { display: flex; flex-direction: column; align-items: center; }
+
+  .node {
+    background: #fff; border: 1.5px solid var(--line); border-radius: 14px;
+    padding: 14px 22px; box-shadow: 0 1px 3px rgba(0,0,0,.07);
+    text-align: center; max-width: 420px;
+    overflow-wrap: break-word;
+  }
+  .node .small { font-size: 12px; color: var(--sub); margin-top: 2px; }
+
+  .start {
+    border-radius: 999px; background: var(--ink); color: #fff; border: none;
+    font-weight: 600; padding: 12px 30px;
+  }
+
+  .decision {
+    background: #fff; border: 1.5px solid var(--violet-line); border-radius: 14px;
+    padding: 12px 24px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  }
+  .decision .q { font-weight: 700; color: var(--violet); }
+  .decision .hint { font-size: 12px; color: var(--sub); }
+
+  .arrow { color: #9ca3af; font-size: 20px; line-height: 1; padding: 8px 0; text-align: center; }
+
+  .branches {
+    display: flex; flex-wrap: wrap; gap: 18px; justify-content: center;
+    align-items: stretch; width: 100%; margin-top: 4px;
+  }
+  .branch {
+    flex: 1 1 260px; max-width: 320px; min-width: 250px;
+    border-radius: 16px; padding: 18px 16px 20px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .branch h2 {
+    font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+    margin-bottom: 2px;
+  }
+  .badge {
+    display: inline-block; border-radius: 999px; padding: 2px 12px;
+    font-size: 13px; font-weight: 700; color: #fff;
+  }
+  .branch .cond { font-size: 12px; color: var(--sub); margin-bottom: 12px; text-align: center; }
+
+  .step {
+    background: #fff; border-radius: 12px; padding: 10px 14px; width: 100%;
+    border: 1.5px solid transparent; box-shadow: 0 1px 2px rgba(0,0,0,.06);
+    text-align: center; font-size: 13.5px;
+    overflow-wrap: break-word;
+  }
+  .step .say { font-weight: 600; }
+  .step .note { display: block; font-size: 11.5px; color: var(--sub); margin-top: 2px; }
+  .quote { font-family: inherit; background: rgba(0,0,0,.045); border-radius: 6px; padding: 1px 6px; }
+
+  .g { background: var(--green-bg); border: 1.5px solid var(--green-line); }
+  .g .badge { background: var(--green); }
+  .g .step { border-color: var(--green-line); }
+  .a { background: var(--amber-bg); border: 1.5px solid var(--amber-line); }
+  .a .badge { background: var(--amber); }
+  .a .step { border-color: var(--amber-line); }
+  .b { background: var(--blue-bg); border: 1.5px solid var(--blue-line); }
+  .b .badge { background: var(--blue); }
+  .b .step { border-color: var(--blue-line); }
+
+  .doc {
+    text-align: left; font-size: 12.5px; background: #fff;
+  }
+  .doc ul { list-style: none; margin-top: 4px; }
+  .doc li { padding-left: 1.1em; text-indent: -1.1em; }
+  .doc li::before { content: "□ "; color: var(--blue); font-weight: 700; }
+
+  .verify {
+    margin-top: 4px; width: 100%; max-width: 560px;
+    background: var(--violet-bg); border: 1.5px solid var(--violet-line);
+    border-radius: 16px; padding: 18px 20px; text-align: center;
+  }
+  .verify h3 { color: var(--violet); font-size: 15px; }
+  .verify .cmd {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px;
+    background: #fff; border-radius: 8px; padding: 6px 10px; margin-top: 8px;
+    display: inline-block; border: 1px solid var(--violet-line);
+  }
+  .verify .small { font-size: 12px; color: var(--sub); margin-top: 6px; }
+
+  .outcomes { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; width: 100%; margin-top: 4px; }
+  .outcome {
+    flex: 1 1 220px; max-width: 300px; border-radius: 14px; padding: 14px 18px; text-align: center;
+    font-size: 13.5px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  }
+  .ok { border: 1.5px solid var(--green-line); }
+  .ok .t { color: var(--green); font-weight: 700; }
+  .ng { border: 1.5px solid #fecaca; background: var(--red-bg); }
+  .ng .t { color: var(--red); font-weight: 700; }
+  .outcome .note { font-size: 11.5px; color: var(--sub); margin-top: 2px; }
+
+  .arrow-pair { display: flex; gap: 120px; }
+
+  .principles {
+    margin: 40px auto 0; max-width: 640px; font-size: 12.5px; color: var(--sub);
+    text-align: center; border-top: 1px solid var(--line); padding-top: 16px;
+  }
+  .principles b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap col-center">
+  <h1>AI開発の進め方</h1>
+  <p class="subtitle">2026年8月版 — 原則: 推測で作らせない・出来たと言わせない</p>
+
+  <div class="node start">作りたいこと・直したいことがある</div>
+  <div class="arrow">↓</div>
+
+  <div class="decision">
+    <div class="q">どのくらいの大きさ？</div>
+    <div class="hint">迷ったら「1文で頼めるか」で判定</div>
+  </div>
+  <div class="arrow">↓</div>
+
+  <div class="branches">
+    <!-- 小 -->
+    <div class="branch g">
+      <h2><span class="badge">小</span>そのまま頼む</h2>
+      <div class="cond">1文で頼める修正<br>（誤字、1ファイルの変更）</div>
+      <div class="step"><span class="say">普通に依頼する</span><span class="note">何も書かない。今まで通り</span></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="say">AIが実装</span></div>
+    </div>
+
+    <!-- 中 -->
+    <div class="branch a">
+      <h2><span class="badge">中</span>計画だけ見る</h2>
+      <div class="cond">複数ファイルに跨るが<br>やり方は明確</div>
+      <div class="step"><span class="say"><span class="quote">実装前に計画を見せて</span></span><span class="note">と一言足すだけ</span></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="say">計画を読んでGO / 修正指示</span></div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="say">AIが実装</span></div>
+    </div>
+
+    <!-- 大 -->
+    <div class="branch b">
+      <h2><span class="badge">大</span>質問 → 設計1枚</h2>
+      <div class="cond">新機能・やり方が<br>自分でも未定</div>
+      <div class="step"><span class="say">① <span class="quote">作る前に質問して</span></span><span class="note">AIの質問に答える（5〜10分）</span></div>
+      <div class="arrow">↓</div>
+      <div class="step doc"><b>② 設計1枚を書かせる</b>
+        <ul>
+          <li>作るもの（2〜3行）</li>
+          <li>完成の条件（コマンド）</li>
+          <li>やらないこと</li>
+        </ul>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="step"><span class="say">③ <span class="quote">これで作って</span></span><span class="note">実装がズレたら設計1枚を根拠に差し戻す</span></div>
+    </div>
+  </div>
+
+  <div class="arrow">↓</div>
+
+  <div class="verify">
+    <h3>機械で検証する（全コース共通）</h3>
+    <div class="cmd">make check ／ uv run pytest ／ 設計に書いた「完成の条件」</div>
+    <div class="small">AIの「できました」は信用しない。コマンドの合否だけを見る</div>
+  </div>
+
+  <div class="arrow-pair">
+    <div class="arrow">↙ 通った</div>
+    <div class="arrow">↘ 落ちた</div>
+  </div>
+
+  <div class="outcomes">
+    <div class="outcome ok">
+      <div class="t">受け取り</div>
+      <div>コミット → PR（AIレビュー）</div>
+    </div>
+    <div class="outcome ng">
+      <div class="t">差し戻し</div>
+      <div>エラーを貼って修正させる</div>
+      <div class="note">↺ 通るまで検証に戻る</div>
+    </div>
+  </div>
+
+  <p class="principles">
+    <b>ハーネス</b>（人が毎回言わなくても機械が守らせる常設ガード）はリポジトリに設置済み:<br>
+    <b>CLAUDE.md</b>（規約・やらないこと）／ <b>make check</b>（検証コマンド）／ <b>pre-commit</b>（型エラーでコミット不可）／ <b>PRのAIレビュー</b>。<br>
+    このフローの「機械で検証」はハーネスを呼ぶ場所。フロー＝人の動き、ハーネス＝置いてある装置。
+  </p>
+</div>
+</body>
+</html>
