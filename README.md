@@ -12,6 +12,7 @@ AI活用プロダクトのアイデア検討と、それを自力で作るため
 | [tools/atlas/](tools/atlas/) | ハンズオンの採点CLI。「できたつもり」を潰す。答えは出さず段階ヒントを返す |
 | [templates/ai-monorepo/](templates/ai-monorepo/) | AI開発向けモノレポ雛形（Python + TypeScript）。新規プロジェクトの起点 |
 | [docs/pr-code-review.md](docs/pr-code-review.md) | PRのAIコードレビュー導入手順。方式の比較・費用抑制・調整方法 |
+| [docs/ai-dev-flow.html](docs/ai-dev-flow.html) | AI開発の進め方フロー図。依頼サイズ(小/中/大)の判定 → 実装 → 機械検証。ブラウザで開く |
 
 ## PRコードレビュー
 
