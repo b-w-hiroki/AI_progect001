@@ -29,6 +29,7 @@
 | H5 | レッスン定義の品質（全checkにヒント必須など） | 🚨 | `tools/atlas/src/atlas/loader.py`（読込時に厳格検証） | `cd tools/atlas && uv run pytest -k hints` → 4件通過 |
 | H6 | atlas 自体の品質 | 🚨 | pytest 47件 / ruff / mypy strict | `cd tools/atlas && uv run pytest && uv run ruff check . && uv run mypy` |
 | H7 | 進捗ファイル等をコミットしない | 🔒 | `.gitignore`（`.atlas/`、`__pycache__/`） | `git check-ignore .atlas/progress.json` → 0 |
+| H8 | レビュー環境の不備を自分で説明させる | 🚨 | `code-review.yml` / `claude.yml` の事前チェック。認証シークレット未登録なら数秒で明確なエラーにし、PRへ手順コメントを1回だけ自動投稿 | run部分をローカル抽出し、未登録/登録済み/コメント重複の3ケースで検証済み |
 
 ### templates/ai-monorepo 雛形（この雛形から作る新プロジェクトに継承される）
 
@@ -41,6 +42,7 @@
 | T5 | PRごとにCIでチェック | 🚨 | `.github/workflows/ci.yml` | PRのChecksに CI が出る |
 | T6 | API境界のJSONは camelCase | 🚨 | `test_serializes_to_camel_case`（契約ピンテスト） | `cd templates/ai-monorepo && uv run pytest -k camel` |
 | T7 | 環境の初期化漏れを防ぐ | 📥 | `.claude/hooks/session-start.sh`（セッション開始時に自動実行） | スクリプトが存在すること |
+| T8 | レビュー環境の不備を自分で説明させる | 🚨 | H8と同じ事前チェック（案内文は雛形のREADMEを指す） | H8と同一ロジック |
 
 ---
 
