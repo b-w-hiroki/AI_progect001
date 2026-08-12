@@ -1,0 +1,47 @@
+name: CI (tools/atlas)
+
+# atlas を変更したPRで、AIレビューとは別に決定的な検証を必ず通す。
+# レビューは「意見」、これは「合否」。両方揃って初めて安心して merge できる。
+on:
+  push:
+    branches: [main]
+    paths: ["tools/atlas/**"]
+  pull_request:
+    paths: ["tools/atlas/**"]
+
+concurrency:
+  group: ci-atlas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/atlas
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: pytest
+        run: uv run pytest
+
+      - name: ruff
+        run: uv run ruff check .
+
+      - name: mypy
+        run: uv run mypy

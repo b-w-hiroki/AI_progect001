@@ -1,0 +1,42 @@
+name: CI (labs)
+
+# labs/ の Terraform を変更したPRで、整形と構文の妥当性を機械的に確認する。
+# `terraform apply` はしない（実リソースは作らない）。
+# labs/ にディレクトリが増えても、*.tf を含むディレクトリを自動で拾う。
+on:
+  push:
+    branches: [main]
+    paths: ["labs/**"]
+  pull_request:
+    paths: ["labs/**"]
+
+concurrency:
+  group: ci-labs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: fmt -check（全labs）
+        run: terraform fmt -check -recursive labs/
+
+      - name: init & validate（各lab）
+        run: |
+          set -e
+          for dir in labs/*/; do
+            if ls "$dir"*.tf >/dev/null 2>&1; then
+              echo "::group::${dir}"
+              (cd "$dir" && terraform init -backend=false -input=false && terraform validate)
+              echo "::endgroup::"
+            fi
+          done
