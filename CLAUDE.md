@@ -16,6 +16,7 @@ labs/01-serverless-api/ Terraformハンズオン。実際にAWSにデプロイ�
 tools/atlas/            labs を採点するCLI。レッスンは lessons/*.yaml のデータ
 templates/ai-monorepo/  新規プロジェクト用の雛形。独自の CLAUDE.md を持つ
 REVIEW.md               PRレビューの指示（マネージドCode Review用）
+docs/harness.md          機械に規約を守らせている仕組みの一覧（強度・動作確認コマンド）
 ```
 
 ## 検証コマンド
@@ -31,6 +32,9 @@ REVIEW.md               PRレビューの指示（マネージドCode Review用�
 **`templates/ai-monorepo/` を変更したら `make check` を通すこと。** 通らない雛形を配布しない。
 
 `labs/` を変更したら `atlas check <レッスンid>` も通すこと。教材と採点の食い違いを残さない。
+
+`tools/atlas/` / `labs/` / `templates/ai-monorepo/` の変更は、上記コマンドがPRのCIでも自動実行される
+（`.github/workflows/ci-*.yml`）。ローカルで通らないものはCIでも通らない。
 
 ## 規約
 

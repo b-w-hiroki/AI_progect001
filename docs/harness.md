@@ -30,6 +30,8 @@
 | H6 | atlas 自体の品質 | 🚨 | pytest 47件 / ruff / mypy strict | `cd tools/atlas && uv run pytest && uv run ruff check . && uv run mypy` |
 | H7 | 進捗ファイル等をコミットしない | 🔒 | `.gitignore`（`.atlas/`、`__pycache__/`） | `git check-ignore .atlas/progress.json` → 0 |
 | H8 | レビュー環境の不備を自分で説明させる | 🚨 | `code-review.yml` / `claude.yml` の事前チェック。認証シークレット未登録なら数秒で明確なエラーにし、PRへ手順コメントを1回だけ自動投稿 | run部分をローカル抽出し、未登録/登録済み/コメント重複の3ケースで検証済み |
+| H9 | 本体リポジトリで `terraform apply/destroy` を勝手に実行しない | 🔒 | 本体ルートの `.claude/settings.json`（deny） | ファイルの deny リストを目視 |
+| H10 | 本体のPRで atlas/labs/雛形の検証が強制される | 🚨 | `ci-atlas.yml` / `ci-labs.yml` / `ci-template.yml`（変更されたパスだけ起動） | ci-atlas・ci-templateはローカルで同一コマンドを実行し通過を確認。ci-labsはこの環境に`terraform`が無く未検証（Actions上のみ確認可） |
 
 ### templates/ai-monorepo 雛形（この雛形から作る新プロジェクトに継承される）
 
@@ -52,12 +54,19 @@
 
 | # | 口約束のルール | いまの状態 | 昇格の候補 |
 |---|---|---|---|
-| G1 | **本体リポジトリで** `terraform apply/destroy` を勝手に実行しない | CLAUDE.md の📥のみ。**deny設定は雛形にしかなく、実物の labs/ がある本体には無い** | 雛形の `.claude/settings.json` を本体ルートにも置く |
-| G2 | 本体のPRで atlas のテスト・lint が強制されない | AIレビュー(H2)はあるが、**決定的なCIが無い**。壊れたコードもマージできてしまう | `tools/atlas` 用の `ci.yml` を本体に追加 |
 | G3 | ドキュメントの数値は実測値にする | CLAUDE.md の📥のみ | 検出は難しい。PRレビュー(REVIEW.md)の観点に明記するのが現実解 |
 | G4 | 大きい作業は「作る前に質問」から始める | 毎回口で言う運用（docs/ai-dev-flow.html 参照） | `.claude/skills/` にスラッシュコマンド化 |
 
+### 塞いだギャップ（履歴）
+
+| # | 内容 | 対応 |
+|---|---|---|
+| G1 | `terraform apply/destroy` のdeny設定が雛形にしかなく、実物の labs/ がある本体に無かった | 本体ルートに `.claude/settings.json` を追加(H9) |
+| G2 | 本体のPRに決定的CIが無く、AIレビューの「意見」だけでマージできた | `tools/atlas` / `labs/` / `templates/ai-monorepo` を対象にした変更検知CIを追加(H10) |
+
+---
+
 ## この仕様書自体の完成条件
 
-- [ ] 一覧の「動作確認」コマンドが実際に通る（H4〜H7、T1、T6 は実行で確認済み。2026-08-10）
+- [x] 一覧の「動作確認」コマンドが実際に通る（H4〜H7、T1、T6 は実行で確認済み。H9/H10 は2026-08-12に追加、ci-labsのみ terraform CLI が手元に無く未実行確認）
 - [ ] ハーネスの追加・削除PRで、この文書が同時に更新されている

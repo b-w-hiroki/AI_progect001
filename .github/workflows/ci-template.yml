@@ -1,0 +1,53 @@
+name: CI (templates/ai-monorepo)
+
+# templates/ai-monorepo は「配れる雛形」であることが価値なので、変更したら
+# 雛形自身の make check を必ず通す。ここは本体repo内では発火しない
+# (templates/ai-monorepo/.github/workflows/ci.yml は
+#  雛形を "Use this template" で切り出した先でのみ有効なため)。
+on:
+  push:
+    branches: [main]
+    paths: ["templates/ai-monorepo/**"]
+  pull_request:
+    paths: ["templates/ai-monorepo/**"]
+
+concurrency:
+  group: ci-template-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: templates/ai-monorepo
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: templates/ai-monorepo/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: make setup
+
+      - name: Run checks
+        run: make check
