@@ -12,7 +12,7 @@ AI活用プロダクトのアイデア検討、AWS/インフラ学習、開発�
 ```
 IDEAS.md                アイデア集（8案）
 LEARNING_AWS.md         AWS学習ロードマップ（フェーズ1〜4）
-labs/01-serverless-api/ Terraformハンズオン。実際にAWSにデプロイする
+labs/                    Terraformハンズオン群。実際にAWSにデプロイする（01, 02, ...）
 tools/atlas/            labs を採点するCLI。レッスンは lessons/*.yaml のデータ
 templates/ai-monorepo/  新規プロジェクト用の雛形。独自の CLAUDE.md を持つ
 REVIEW.md               PRレビューの指示（マネージドCode Review用）
@@ -26,7 +26,7 @@ docs/harness.md          機械に規約を守らせている仕組みの一覧�
 | 対象 | コマンド |
 |---|---|
 | `templates/ai-monorepo/` | `cd templates/ai-monorepo && make check` |
-| `labs/01-serverless-api/` | `terraform fmt -check && terraform validate` |
+| `labs/<lab-dir>/` | `terraform fmt -check && terraform validate`（各Lab配下で実行） |
 | `tools/atlas/` | `cd tools/atlas && uv run pytest && uv run ruff check . && uv run mypy` |
 
 **`templates/ai-monorepo/` を変更したら `make check` を通すこと。** 通らない雛形を配布しない。

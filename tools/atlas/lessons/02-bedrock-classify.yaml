@@ -1,0 +1,140 @@
+id: 02-bedrock-classify
+title: Bedrock でレビューを自動分類する
+summary: >-
+  Lab 1 のレビューAPIを拡張し、SQSで疎結合にした Lambda から
+  Amazon Bedrock 経由の Claude を呼んでレビューを分類する。
+  IAMロールの分離とモデルARNでの権限の絞り込み、Lambda Layerでの
+  依存関係管理ができる状態になる。
+
+objectives:
+  - SQSでLambda間を疎結合にし、LLM呼び出しをAPIの応答から切り離せる
+  - bedrock:InvokeModel を特定のモデルARNだけに絞って許可できる
+  - Lambda Layer で外部SDK依存を関数コードから分離できる
+  - SQSの可視性タイムアウトとLambdaのタイムアウトの関係を説明できる
+  - DLQで「リトライしても直らない失敗」を無限に再試行させない設計にできる
+
+target_dir: labs/02-bedrock-classify
+reference: labs/02-bedrock-classify/README.md
+
+checks:
+  # --- 静的検査: AWSに繋がなくても採点できる ---
+
+  - id: tf-formatted
+    title: Terraformが整形されている
+    type: command_succeeds
+    command: ["terraform", "fmt", "-check", "-recursive"]
+    hints:
+      - 整形が崩れています。
+      - "`terraform fmt` は引数なしで実行すると、その場でファイルを書き換えます。"
+      - "対象ディレクトリで `terraform fmt -recursive` を実行してください。"
+
+  - id: queue-defined
+    title: 分類用のSQSキューが定義されている
+    type: file_matches
+    path: main.tf
+    pattern: 'resource\s+"aws_sqs_queue"'
+    hints:
+      - API LambdaとBedrockを呼ぶLambdaを疎結合にするキューがまだありません。
+      - "SQSのキューを作るリソース型を AWS Provider のドキュメントで探してください。"
+      - "`aws_sqs_queue` を定義します。"
+
+  - id: dlq-configured
+    title: DLQへのredrive_policyが設定されている
+    type: file_matches
+    path: main.tf
+    pattern: redrive_policy
+    hints:
+      - リトライしても直らない失敗（モデルIDの誤りなど）を無限リトライさせない仕組みがありません。
+      - SQSキューには、一定回数失敗したメッセージを別のキューへ転送する設定があります。
+      - "`redrive_policy` に `deadLetterTargetArn` と `maxReceiveCount` を指定します。"
+
+  - id: classify-lambda-defined
+    title: classify Lambdaが定義されている
+    type: file_matches
+    path: main.tf
+    pattern: 'resource\s+"aws_lambda_function"\s+"classify"'
+    hints:
+      - Bedrockを呼ぶ側のLambda関数がまだ定義されていません。
+      - API用のLambdaとは別に、SQSからトリガーされる関数をもう1つ作ります。
+      - "`aws_lambda_function` を `classify` という名前でもう1つ定義します。"
+
+  - id: layer-defined
+    title: anthropic SDK用のLambda Layerが定義されている
+    type: file_matches
+    path: main.tf
+    pattern: 'resource\s+"aws_lambda_layer_version"'
+    hints:
+      - "外部SDK（anthropic）をclassify Lambdaにどう持ち込むかが定義されていません。"
+      - "関数コードに混ぜず、依存関係だけを別のリソースとして扱う仕組みがあります。"
+      - "`aws_lambda_layer_version` を定義し、classify Lambdaの `layers` に指定します。"
+
+  - id: event-source-mapping-defined
+    title: SQSからclassify Lambdaへのトリガーが設定されている
+    type: file_matches
+    path: main.tf
+    pattern: 'resource\s+"aws_lambda_event_source_mapping"'
+    hints:
+      - キューにメッセージを送っても、classify Lambdaが自動では起動しません。
+      - "SQSをイベントソースとしてLambdaに紐付けるリソースがあります。"
+      - "`aws_lambda_event_source_mapping` で `event_source_arn` と `function_name` を指定します。"
+
+  - id: bedrock-model-arn-scoped
+    title: bedrock:InvokeModelの権限が特定モデルに絞られている
+    type: file_matches
+    path: main.tf
+    pattern: 'arn:aws:bedrock:[^"]*foundation-model'
+    hints:
+      - "bedrock:InvokeModel の resources が特定のモデルを指すARNになっていません。"
+      - "Bedrockの基盤モデルのARNは `arn:aws:bedrock:<region>::foundation-model/<model-id>` の形です。"
+      - "`resources = [\"arn:aws:bedrock:${var.region}::foundation-model/${var.bedrock_model_id}\"]` のように書きます。"
+
+  - id: no-wildcard-action
+    title: IAMポリシーにワイルドカードが無い
+    type: file_not_matches
+    path: main.tf
+    pattern: '"Action"\s*:\s*"\*"|actions\s*=\s*\[\s*"\*"\s*\]'
+    hints:
+      - IAMポリシーで全アクションを許可している箇所があります。
+      - "api用・classify用、それぞれのロールに本当に必要な操作だけを列挙してください。"
+      - "特に bedrock:InvokeModel は他のアクションと混ぜて `*` にしないよう注意します。"
+
+  - id: no-wildcard-resource
+    title: IAMポリシーのResourceが限定されている
+    type: file_not_matches
+    path: main.tf
+    pattern: 'resources\s*=\s*\[\s*"\*"\s*\]'
+    hints:
+      - IAMポリシーの対象リソースが全指定になっている箇所があります。
+      - "DynamoDB・SQS・BedrockのそれぞれでARNを参照できます。"
+      - "特にBedrockは `resources = [\"*\"]` にすると他の全モデルを呼べてしまいます。"
+
+  - id: visibility-timeout-set
+    title: SQSの可視性タイムアウトが明示されている
+    type: file_matches
+    path: main.tf
+    pattern: visibility_timeout_seconds
+    hints:
+      - "可視性タイムアウトがデフォルト（30秒）のままだと、classify Lambdaのタイムアウトと関係がずれる可能性があります。"
+      - "可視性タイムアウトは、Lambdaがメッセージを処理し終わる前に他のワーカーへ再配信されないよう、Lambdaのタイムアウトより長く設定します。"
+      - "`aws_sqs_queue` に `visibility_timeout_seconds` を明示的に設定してください。"
+
+  - id: destroy-safe
+    title: Terraformの構成が妥当である
+    type: command_succeeds
+    command: ["terraform", "validate"]
+    hints:
+      - 構成にエラーがあります。まず `terraform init` を実行しましたか。
+      - "`terraform validate` の出力に、問題のあるファイルと行番号が出ています。"
+      - 参照しているリソース名やattribute名の綴りを確認してください。
+
+  # --- 実リソース検査: 認証情報がある場合のみ実行される ---
+
+  - id: queue-deployed
+    title: SQSキューが実際に作成されている
+    type: aws_resource_exists
+    requires_aws: true
+    command: ["aws", "sqs", "get-queue-url", "--queue-name", "lab02-classify-queue"]
+    hints:
+      - まだデプロイされていません。ローカルの定義だけでは完了になりません。
+      - "`terraform plan` で、作られる予定のリソースを先に確認してください。"
+      - "`terraform apply` を実行します。**確認が終わったら必ず `terraform destroy` してください。**"
