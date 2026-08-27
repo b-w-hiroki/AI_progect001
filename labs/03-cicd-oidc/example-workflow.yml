@@ -1,0 +1,48 @@
+# サンプルワークフロー。このリポジトリの .github/workflows/ には自動配置しない
+# （AWS_DEPLOY_ROLE_ARN が未設定のまま有効化すると、全PRでこのjobが失敗する）。
+# 試す場合は、このファイルを手元でコピーし、リポジトリ変数を設定してから
+# .github/workflows/ に置く。手順は README.md の「3. サンプルワークフローを試す」参照。
+#
+# terraform apply はしない。plan だけをCIに乗せる設計（README「設計判断のメモ」参照）。
+# アクセスキーは一切使わない — id-token: write でOIDCトークンを発行し、
+# それを role-to-assume でAWSの一時認証情報に交換する。
+
+name: Terraform Plan (OIDC)
+
+on:
+  pull_request:
+    paths:
+      - "labs/01-serverless-api/**"
+      - "labs/02-bedrock-classify/**"
+
+permissions:
+  id-token: write # OIDCトークン発行に必須
+  contents: read
+
+concurrency:
+  group: terraform-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lab: [labs/01-serverless-api, labs/02-bedrock-classify]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: terraform plan
+        working-directory: ${{ matrix.lab }}
+        run: |
+          terraform init
+          terraform plan
