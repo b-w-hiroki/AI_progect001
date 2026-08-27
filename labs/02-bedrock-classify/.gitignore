@@ -1,0 +1,10 @@
+# .terraform.lock.hcl は意図的に除外しない — プロバイダのバージョンを固定するため
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+build/
+lambda.zip
+
+# 学習者が手元でビルドする依存関係。READMEの「0. レイヤーの準備」参照
+layer/python/

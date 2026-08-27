@@ -1,0 +1,3 @@
+# classify Lambda が使う外部SDK。python/ 配下にインストールしてLayer化する。
+# 手順は README.md の「0. レイヤーの準備」を参照。
+anthropic[bedrock]
