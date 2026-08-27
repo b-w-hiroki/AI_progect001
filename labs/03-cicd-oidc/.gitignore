@@ -1,0 +1,10 @@
+# .terraform.lock.hcl は意図的に除外しない — プロバイダのバージョンを固定するため
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+build/
+
+# S3 backend の接続情報。terraform init -backend-config で渡す値を
+# ファイル化する場合はここに置く想定（READMEのbackend.hcl参照）。コミットしない。
+backend.hcl

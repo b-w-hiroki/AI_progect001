@@ -1,0 +1,142 @@
+id: 03-cicd-oidc
+title: GitHub ActionsからOIDCでAWSへ接続する
+summary: >-
+  アクセスキーを置かずにGitHub ActionsからAWSを認証するOIDCの仕組みと、
+  S3 + DynamoDBによるTerraform state管理を構築する。plan専用の
+  最小権限ロールを設計し、CIには「読む」権限だけを渡せる状態になる。
+
+objectives:
+  - OIDCプロバイダとIAM信頼ポリシーの sub 条件でAssumeRoleを絞り込める
+  - AWSアカウントにOIDCプロバイダが1つしか作れない制約に対応できる
+  - S3 backendのpartial configuration（-backend-config）を使える
+  - CI用ロールに書き込み権限を持たせない設計判断を説明できる
+  - GitHub Actionsワークフローでアクセスキーを一切使わずに認証できる
+
+target_dir: labs/03-cicd-oidc
+reference: labs/03-cicd-oidc/README.md
+
+checks:
+  # --- 静的検査: AWSに繋がなくても採点できる ---
+
+  - id: tf-formatted
+    title: Terraformが整形されている（bootstrap含む）
+    type: command_succeeds
+    command: ["terraform", "fmt", "-check", "-recursive"]
+    hints:
+      - 整形が崩れています。bootstrap/ 配下も対象です。
+      - "`terraform fmt` は引数なしで実行すると、その場でファイルを書き換えます。"
+      - "対象ディレクトリで `terraform fmt -recursive` を実行してください。"
+
+  - id: oidc-provider-conditional
+    title: OIDCプロバイダの作成が条件分岐している
+    type: file_matches
+    path: main.tf
+    pattern: 'count\s*=\s*var\.create_oidc_provider'
+    hints:
+      - "AWSアカウントには同じURLのOIDCプロバイダを1つしか作れません。無条件に作成するとLab間で衝突します。"
+      - "`count` を使うと、変数の値によってリソースを作る/作らないを切り替えられます。"
+      - "`resource \"aws_iam_openid_connect_provider\" \"github\"` に `count = var.create_oidc_provider ? 1 : 0` を指定します。"
+
+  - id: sub-condition-scoped
+    title: 信頼ポリシーがリポジトリ・イベントで絞られている
+    type: file_matches
+    path: main.tf
+    pattern: 'token\.actions\.githubusercontent\.com:sub'
+    hints:
+      - "AssumeRoleできる相手が絞られていません。誰でもこのロールを引き受けられる状態は危険です。"
+      - "OIDCトークンの `sub` claim には `repo:owner/repo:event` の形でリポジトリとイベント種別が入ります。"
+      - "`condition` ブロックで `token.actions.githubusercontent.com:sub` を `StringLike` で絞ります。"
+
+  - id: sub-condition-not-wildcard-repo
+    title: sub条件が特定のリポジトリ変数を参照している
+    type: file_matches
+    path: main.tf
+    pattern: 'repo:\$\{var\.github_repo\}'
+    hints:
+      - "sub条件のリポジトリ部分が、変数を経由せず決め打ちや全許可になっていませんか。"
+      - "`var.github_repo` を使って、このLabがどのリポジトリ用かを明示します。"
+      - "`\"repo:${var.github_repo}:pull_request\"` のように組み立てます。"
+
+  - id: no-write-actions-in-plan-role
+    title: plan用ロールに実インフラを変更するアクションが含まれていない
+    type: file_not_matches
+    path: main.tf
+    # dynamodb:PutItem / DeleteItem はstateロックテーブル専用に限定して許可している
+    # 意図的な例外なので、ここでは対象にしない（テーブル自体の作成/削除/構造変更や、
+    # Lambda・API Gateway・S3オブジェクトへの書き込みだけを禁止パターンにする）。
+    pattern: '"(lambda:(Create|Update|Delete|Add|Remove)\w*|apigateway:(POST|PUT|PATCH|DELETE)|dynamodb:(CreateTable|UpdateTable|DeleteTable|BatchWriteItem)|sqs:(Create|Delete|SetQueueAttributes|Purge)\w*|s3:(Put|Delete)\w*|iam:(Create|Put|Attach|Delete|Update)\w*)'
+    hints:
+      - "CI用のロールに実インフラ（Lambda・API Gateway・S3オブジェクトなど）を変更できるアクションが含まれています。"
+      - "このLabの設計は「CIはplanまで、applyは手元で」です。IAMポリシーもそれに合わせます。"
+      - "stateロック用の dynamodb:PutItem/DeleteItem は例外的に許可済みです。それ以外のCreate/Update/Delete系アクションを見直してください。"
+
+  - id: bootstrap-bucket-versioned
+    title: tfstateバケットにバージョニングが設定されている
+    type: file_matches
+    path: bootstrap/main.tf
+    pattern: 'aws_s3_bucket_versioning'
+    hints:
+      - "tfstateは壊れると復元が難しいファイルです。過去のバージョンへ戻せる設定がありません。"
+      - "S3にはオブジェクトのバージョン管理機能があります。"
+      - "`aws_s3_bucket_versioning` で `versioning_configuration.status = \"Enabled\"` にします。"
+
+  - id: bootstrap-bucket-not-public
+    title: tfstateバケットの公開アクセスが塞がれている
+    type: file_matches
+    path: bootstrap/main.tf
+    pattern: 'aws_s3_bucket_public_access_block'
+    hints:
+      - "tfstateにはリソースIDやARNなどの情報が含まれます。公開設定を明示的に塞ぐ必要があります。"
+      - "S3バケットのパブリックアクセスをまとめてブロックするリソースがあります。"
+      - "`aws_s3_bucket_public_access_block` で4つのブロック設定をすべて true にします。"
+
+  - id: lock-table-defined
+    title: state用のDynamoDBロックテーブルが定義されている
+    type: file_matches
+    path: bootstrap/main.tf
+    pattern: 'resource\s+"aws_dynamodb_table"\s+"lock"'
+    hints:
+      - "複数人・複数マシンで同時にapplyしたときの排他制御がありません。"
+      - "TerraformのS3 backendは、DynamoDBテーブルをロックに使えます。"
+      - "`aws_dynamodb_table` を `lock` という名前で定義し、ハッシュキーを `LockID` にします。"
+
+  - id: example-workflow-no-static-credentials
+    title: サンプルワークフローがアクセスキーを使っていない
+    type: file_not_matches
+    path: example-workflow.yml
+    pattern: '(?i)aws[_-]access[_-]key[_-]id'
+    hints:
+      - "OIDCを使う目的は、長期アクセスキーをGitHubに置かないことです。"
+      - "認証情報はワークフロー内で直接指定せず、ロールを引き受ける形にします。"
+      - "`aws-actions/configure-aws-credentials` の `role-to-assume` を使い、アクセスキーの入力は削除します。"
+
+  - id: example-workflow-oidc-permission
+    title: サンプルワークフローがid-tokenの発行を要求している
+    type: file_matches
+    path: example-workflow.yml
+    pattern: 'id-token:\s*write'
+    hints:
+      - "OIDCトークンを発行するには、ワークフロー側でその権限を明示的に要求する必要があります。"
+      - "GitHub Actionsのワークフロー権限に関する設定です。"
+      - "`permissions:` に `id-token: write` を追加します。"
+
+  - id: destroy-safe
+    title: ルートのTerraform構成が妥当である
+    type: command_succeeds
+    command: ["terraform", "validate"]
+    hints:
+      - 構成にエラーがあります。まず `terraform init -backend=false` を実行しましたか。
+      - "`terraform validate` の出力に、問題のあるファイルと行番号が出ています。"
+      - "bootstrap/ は別のTerraformルートです。このコマンドではチェックされません。個別に `cd bootstrap && terraform validate` してください。"
+
+  # --- 実リソース検査: 認証情報がある場合のみ実行される ---
+
+  - id: plan-role-deployed
+    title: plan用のIAMロールが実際に作成されている
+    type: aws_resource_exists
+    requires_aws: true
+    command: ["aws", "iam", "get-role", "--role-name", "lab03-cicd-plan-role"]
+    hints:
+      - まだデプロイされていません。ローカルの定義だけでは完了になりません。
+      - "先に bootstrap/ を apply し、その出力を使ってルートの `terraform apply` を実行します。"
+      - "**確認が終わったら、bootstrapより先にルート側を destroy してください。**"

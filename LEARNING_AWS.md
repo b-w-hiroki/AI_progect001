@@ -118,7 +118,8 @@ for block in message.content:
 | GitHub Actions + OIDC | CIからAWSへ、**アクセスキーを置かずに**デプロイする |
 | Terraform の state 管理（S3 + DynamoDB lock） | 複数人・複数マシンで作業する瞬間に必要になる |
 
-**ハンズオン**: `labs/03-cicd-oidc/`（GitHub ActionsからOIDCでデプロイ）
+**ハンズオン**: `labs/03-cicd-oidc/`（GitHub ActionsからOIDCでAWSへ接続し `terraform plan` を実行する。
+`apply` は意図的にCIへ乗せず、学習者が手元で行う設計 — 理由はLab 3のREADME参照）
 
 **つまずきポイント**: OIDCの信頼ポリシーの条件（`sub` のマッチング）が細かい。ここでアクセスキーに逃げると、後で必ず漏洩リスクを抱える。
 
@@ -173,7 +174,7 @@ for block in message.content:
 
 ### フェーズ3
 - [ ] Terraform state を S3 に置いた
-- [ ] GitHub Actions から OIDC でデプロイできた
+- [ ] GitHub Actions から OIDC でAWSに接続し、`terraform plan` を実行できた
 - [ ] エラー率のアラートがSlack/メールに飛んだ
 - [ ] 認証をかけて、認証なしリクエストが弾かれることを確認した
 
