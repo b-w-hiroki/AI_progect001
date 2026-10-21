@@ -340,17 +340,17 @@ resource "aws_apigatewayv2_authorizer" "reviews" {
 }
 
 resource "aws_apigatewayv2_route" "post_review" {
-  api_id    = aws_apigatewayv2_api.this.id
-  route_key = "POST /reviews"
-  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "POST /reviews"
+  target             = "integrations/${aws_apigatewayv2_integration.api.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.reviews.id
 }
 
 resource "aws_apigatewayv2_route" "get_reviews" {
-  api_id    = aws_apigatewayv2_api.this.id
-  route_key = "GET /reviews"
-  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+  api_id             = aws_apigatewayv2_api.this.id
+  route_key          = "GET /reviews"
+  target             = "integrations/${aws_apigatewayv2_integration.api.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.reviews.id
 }
