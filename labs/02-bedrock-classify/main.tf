@@ -328,16 +328,31 @@ resource "aws_apigatewayv2_integration" "api" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_authorizer" "reviews" {
+  api_id           = aws_apigatewayv2_api.this.id
+  authorizer_type  = "JWT"
+  name             = "reviews-jwt"
+  identity_sources = ["$request.header.Authorization"]
+  jwt_configuration {
+    issuer   = var.jwt_issuer
+    audience = [var.jwt_audience]
+  }
+}
+
 resource "aws_apigatewayv2_route" "post_review" {
   api_id    = aws_apigatewayv2_api.this.id
   route_key = "POST /reviews"
   target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.reviews.id
 }
 
 resource "aws_apigatewayv2_route" "get_reviews" {
   api_id    = aws_apigatewayv2_api.this.id
   route_key = "GET /reviews"
   target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.reviews.id
 }
 
 resource "aws_apigatewayv2_stage" "default" {
