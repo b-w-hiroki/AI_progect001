@@ -34,7 +34,7 @@ permissions:
 jobs:
   review:
     # ドラフトPRは自動レビューしない。手動実行なら常に走らせる
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    if: github.actor == github.repository_owner && (github.event_name == 'workflow_dispatch' || (github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
