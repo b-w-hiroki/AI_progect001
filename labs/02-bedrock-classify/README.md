@@ -43,6 +43,12 @@ POSTの応答は「保存できたか」だけを返す。分類は裏で非同�
 
 ---
 
+## API 認証の選択（デプロイ前に必須）
+
+この Lab の `POST /reviews` と `GET /reviews` は既存の OIDC 発行者による JWT 認証を必須にする。Terraform は認証基盤を作成しない。デプロイ前に、利用する発行者の HTTPS URL と API 用 audience を `jwt_issuer`、`jwt_audience` に指定する。認証基盤が無い場合はこの有料 Bedrock Lab をデプロイせず、無料のローカル演習を使う。API Gateway の JWT 認可に加え、公開時は利用者単位のクォータや AWS Budgets を設定する。
+
+動作確認では、発行者から取得したテスト用 JWT を `TOKEN` に設定し、両方の curl に `-H "Authorization: Bearer $TOKEN"` を付ける。実トークンや秘密情報をリポジトリに保存しない。
+
 ## 事前準備
 
 ```bash
@@ -97,15 +103,16 @@ terraform apply
 API=$(terraform output -raw api_endpoint)
 
 curl -sS -X POST "$API/reviews" \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"product_id":"SKU-001","rating":5,"text":"梱包が丁寧で、届くのも早くて大満足でした"}'
 
 # すぐ取得すると sentiment はまだ null
-curl -sS "$API/reviews?product_id=SKU-001"
+curl -sS -H "Authorization: Bearer $TOKEN" "$API/reviews?product_id=SKU-001"
 
 # 数秒待ってから再度取得すると sentiment が埋まっているはず
 sleep 5
-curl -sS "$API/reviews?product_id=SKU-001"
+curl -sS -H "Authorization: Bearer $TOKEN" "$API/reviews?product_id=SKU-001"
 ```
 
 ### 3. ログを見る
