@@ -35,3 +35,21 @@ variable "classify_timeout" {
   type        = number
   default     = 30
 }
+
+variable "jwt_issuer" {
+  description = "Existing OIDC issuer URL for review API callers; required before deployment."
+  type        = string
+  validation {
+    condition     = can(regex("^https://[^/]+", var.jwt_issuer))
+    error_message = "jwt_issuer must be an HTTPS issuer URL."
+  }
+}
+
+variable "jwt_audience" {
+  description = "Audience accepted for review API callers; required before deployment."
+  type        = string
+  validation {
+    condition     = length(trimspace(var.jwt_audience)) > 0
+    error_message = "jwt_audience must not be empty."
+  }
+}
