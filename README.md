@@ -25,6 +25,10 @@ PCから10〜15分の初期設定が必要:
 概略: GitHub App インストール → PCで `claude setup-token` → シークレット `CLAUDE_CODE_OAUTH_TOKEN` の登録 → 動作確認。
 サブスクリプション方式なので、APIキーの発行と上限設定は不要。
 
+## 実案件への接続
+
+[実プロダクトでの学習・検証記録](docs/product-learning-run.md)に変更前後の結果と費用を残します。
+
 ## 進め方
 
 `IDEAS.md` でアイデアを絞り、`LEARNING_AWS.md` のロードマップに沿って `labs/` を順に手を動かす。
