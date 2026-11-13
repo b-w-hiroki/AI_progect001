@@ -15,15 +15,18 @@ AI活用プロダクトのアイデア検討と、それを自力で作るため
 | [docs/ai-dev-flow.html](docs/ai-dev-flow.html) | AI開発の進め方フロー図。依頼サイズ(小/中/大)の判定 → 実装 → 機械検証。ブラウザで開く |
 | [docs/harness.md](docs/harness.md) | ハーネス仕様書。機械に守らせている規約の一覧・強度・動作確認コマンド・未整備の穴 |
 
-## PRコードレビュー
+## PRコードレビューと実行範囲
 
-ClaudeによるPRレビューを GitHub Actions で設定済み。ただし**ファイルを置いただけでは動かない**。
+AI レビューは任意です。決定的な検証は `.github/workflows/ci-labs.yml`、`ci-template.yml`、`ci-atlas.yml` で分けています。
 
-PCから10〜15分の初期設定が必要:
-[docs/pr-code-review.md のセットアップ手順](docs/pr-code-review.md#bgithub-actionsのセットアップ手順)（Step 0〜5。Step 2 のみターミナルを使う）
+- 自動レビューは、リポジトリ所有者が起動した同一リポジトリの非 Draft PR を対象に、PR 作成時・Draft 解除時だけ実行します。毎 push のレビューではありません。
+- Draft PR と fork PR は自動レビューの対象外です。手動実行も所有者に限定されています。
+- 認証シークレットの有無・有効期限・契約の利用枠はコードからは確認できません。費用や利用条件を確認し、必要なときに [セットアップ資料](docs/pr-code-review.md) を使ってください。資料の料金・サービス条件は再確認が必要です。
+- AI レビュー成功は、テスト成功や AWS の動作・削除確認を代替しません。認証情報の登録や実レビュー実行は、この文書の更新には含みません。
 
-概略: GitHub App インストール → PCで `claude setup-token` → シークレット `CLAUDE_CODE_OAUTH_TOKEN` の登録 → 動作確認。
-サブスクリプション方式なので、APIキーの発行と上限設定は不要。
+各 CI はパスで絞っています。`tools/atlas/` に変更がない head に atlas の run がなくても、それだけで失敗とは言えません。逆に labs / template の成功を atlas の検証成功として数えないでください。
+
+Lab の完了証拠・費用上限・削除確認は [共通チェックリスト](docs/lab-completion.md) を使います。
 
 ## 進め方
 
